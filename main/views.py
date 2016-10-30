@@ -3,6 +3,9 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 import json
 from .models import lecture,kakao_user
+from django.contrib.auth.decorators import login_required
+from .tasks import periodic_task
+
 
 @csrf_exempt
 def keyboard(request):
@@ -36,3 +39,34 @@ def room(request,user_key):
     #채팅방 나감
     
     return HttpResponse("")
+
+@login_required
+def task_form(request):
+    if request.user.is_superuser:
+        
+        
+        # try:
+        if request.GET.get('method')=='start':
+            periodic_task()
+            
+        elif request.GET.get('method')=='stop':
+            periodic_task.pause_task()
+            word="pause 성공"
+            
+        elif request.GET.get('method')=='resume':
+            periodic_task.resume_task()
+            word="resume 성공"
+            
+        elif request.GET.get('method')=='interval':
+            periodic_task.modify_task(time=5)
+            word="interval 조절 성공"
+        else:
+            word=""
+            
+        status=periodic_task.get_status()
+        # except(e):
+        #     print("fail")
+        #     word=e
+            
+        
+        return render(request,'control.html',{'message' : word, 'status' : status})
