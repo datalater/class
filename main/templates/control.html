@@ -3,16 +3,29 @@
   <head>
     <title>Task Page</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta charset="UTF-8"> 
+    <meta charset="UTF-8">
+    <script
+    src="https://code.jquery.com/jquery-3.1.1.min.js"
+    integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+    crossorigin="anonymous"></script>
   </head>
-  <body>
+  <body>        
     {{message}}
     <br>
-    {{status}}
+    상태 : {{status}}
     <br>
-    <a role=button href='/?method=start'>시작</a>
-    <a role=button href='/?method=stop'>중지</a>
-    <a role=button href='/?method=resume'>재시작</a>
-    <a role=button href='/?method=interval'>파싱 간격 변경</a>
+    <a type=button href='/?method=start'>시작</a>
+    <br>
+    <a type=button href='/?method=stop'>중지</a>
+    <br>
+    <a type=button href='/?method=resume'>재시작</a>
+    <br>
+    <button  id="intervalbtn">파싱 간격 변경</button><input type="text" id="interval">
   </body>
 </html>
+<script>
+    $("#intervalbtn").click(function(){
+      var value=$("#interval").val();
+      window.location.href='/?method=interval&interval='+value;
+    })
+</script>

@@ -43,4 +43,4 @@ class periodic_task:
     
     @staticmethod
     def modify_task(time=60):
-        periodic_task.__task.reschedule_job('my_task',trigger='interval',seconds=time)
+        periodic_task.__task_instance.reschedule(trigger='interval',seconds=time)
