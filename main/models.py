@@ -34,3 +34,11 @@ class recent_search(models.Model):
     
     def __str__(self):
         return self.lecture_name
+        
+class major_list(models.Model):
+    
+    major_name=models.CharField('전공',unique=True,max_length=25)
+    recent_datetime=models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return self.major_name
