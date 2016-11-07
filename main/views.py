@@ -5,7 +5,8 @@ import json
 from .models import lecture,kakao_user,recent_search,major_list
 from django.contrib.auth.decorators import login_required
 from .tasks import periodic_task
-
+from .parser import *
+from datetime import timedelta
 
 @csrf_exempt
 def keyboard(request):
@@ -72,13 +73,34 @@ def message(request):
             lecture_list=recent_search.objects.filter(lecture__lecture_name=search_content,kakao_user__user_key=key)
             lecture_list=lecture_list[0].lecture
             
+            if lecture_list.brand_new()==False:
+                a=parsing_class()
+                a.parsing_major_name(lecture_list.major.major_name)
+                lecture_list=lecture.objects.get(course_number=lecture_list.course_number)
+
+
+            #--학과 검색시간 갱신
+            a=major_list.objects.get(major_name=lecture_list.major.major_name)
+            a.recent_datetime=timezone.localtime(timezone.now())
+            a.save()
+
+            #--인기도 1 증가
+            t=lecture_list
+            t.popularity+=1
+            t.save()
+
+            #--유저 검색횟수 1 증가
+            user.search_number+=1
+            user.save()
+            
             r_s_list=["@"+x.lecture.lecture_name for x in user.recent_search_set.all()]
 
             response_json={
                 "message":{
                     "text": '과목명: '+lecture_list.lecture_name+"\n"+
                         '담당교수: '+lecture_list.professor_name+"\n"+
-                        '현재원/총원: '+str(lecture_list.opening)+"/"+str(lecture_list.total_number)
+                        '현재원/총원: '+str(lecture_list.opening)+"/"+str(lecture_list.total_number)+"\n"+
+                        'updated_at: '+str((lecture_list.updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초'))
                 },
                 "keyboard":{
                     "type": "buttons",
@@ -95,7 +117,7 @@ def message(request):
         elif ":" in content:
 
             temp=content.split(":")
-            lecture_list=lecture.objects.filter(lecture_name=temp[0],professor_name=temp[1],course_number=temp[2])
+            lecture_list=lecture.objects.filter(lecture_name=temp[0],professor_name=temp[1],course_date=temp[2][1:])
 
         #---아예 처음 검색한 경우
         else:
@@ -134,7 +156,7 @@ def message(request):
         #---검색 했을 때 결과가 여러개 나온 경우 -> :를 포함한 세부 검색 결과로 진행
         elif lecture_list.count()>1:
 
-            lecture_list=[lecture.lecture_name+":"+lecture.professor_name+":"+lecture.course_number for lecture in lecture_list]
+            lecture_list=[lecture.lecture_name+":"+lecture.professor_name+":\n"+lecture.course_date for lecture in lecture_list]
 
             response_json={
                 "message":{
@@ -150,15 +172,22 @@ def message(request):
         else:
 
             #---최근 검색 강의에 먼저 저장
-            if user.recent_search_set.all().count()>5: user.recent_search_set.all()[0].delete()
+            if user.recent_search_set.all().count()>4: user.recent_search_set.all()[0].delete()
             
             if user.recent_search_set.filter(lecture__course_number=lecture_list[0].course_number).count()==0:
                 recent_search(kakao_user=user,
                         lecture=lecture_list[0]).save()
+                        
+            if lecture_list[0].brand_new()==False:
+                a=parsing_class()
+                a.parsing_major_name(lecture_list[0].major.major_name)
+                lecture_list=lecture.objects.filter(course_number=lecture_list[0].course_number)
 
 
             #--학과 검색시간 갱신
-            major_list.objects.get(major_name=lecture_list[0].major.major_name).save()
+            a=major_list.objects.get(major_name=lecture_list[0].major.major_name)
+            a.recent_datetime=timezone.localtime(timezone.now())
+            a.save()
 
             #--인기도 1 증가
             t=lecture_list[0]
@@ -175,7 +204,8 @@ def message(request):
                 "message":{
                     "text": '과목명: '+lecture_list[0].lecture_name+"\n"+
                         '담당교수: '+lecture_list[0].professor_name+"\n"+
-                        '현재원/총원: '+str(lecture_list[0].opening)+"/"+str(lecture_list[0].total_number)
+                        '현재원/총원: '+str(lecture_list[0].opening)+"/"+str(lecture_list[0].total_number)+"\n"+
+                        'updated_at: '+str((lecture_list[0].updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초'))
                 },
                 "keyboard":{
                     "type": "buttons",
@@ -218,8 +248,13 @@ def task_form(request):
         
         
         # try:
-        if request.GET.get('method')=='start':
+        if request.GET.get('method')=='list':
+            parsing_class().major_list_parsing()
+            word="리스트 가져오기 성공"
+            
+        elif request.GET.get('method')=='start':
             periodic_task()
+            word="start 성공"
             
         elif request.GET.get('method')=='stop':
             periodic_task.pause_task()

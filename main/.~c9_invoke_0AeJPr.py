@@ -2,20 +2,13 @@ from .models import lecture,kakao_user,major_list
 import requests
 from bs4 import BeautifulSoup
 from datetime import date
-from django.utils import timezone
 
 import re
 
 def function():
     new=kakao_user(user_key="000")
     new.save()
-
-def init_parsing():
-    a=parsing_class()
-    a.parsing_all()
     
-def periodic_parsing():
-    a=parsing_class()
 
 
 head={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36'}
@@ -68,7 +61,7 @@ class parsing_class():
 
         #-----조회할 데이터 옵션 선택-----#
 
-        # self.course_info_list = list()
+        self.course_info_list = list()
 
         for i in range(len(self.gubun_list)):
             if  i == 0:
@@ -85,8 +78,7 @@ class parsing_class():
                         'ag_compt_fld_cd':'' # 교양 목록
                         }
 
-                    # self.major_data = list(self.parsing(params))
-                    self.parsing(params)
+                    self.major_data = list(self.parsing(params))
             else:
                 for k in range(len(self.liberal_code_list)):
                     params ={
@@ -101,19 +93,18 @@ class parsing_class():
                         'ag_compt_fld_cd': self.liberal_code_list[k] # 교양 목록
                         }
 
-                    # self.liberal_data = list(self.parsing(params))
-                    self.parsing(params)
+                    self.liberal_data = list(self.parsing(params))
 
-        # self.all_data = self.major_data + self.liberal_data
+        self.all_data = self.major_data + self.liberal_data
 
 
     def parsing_major_name(self, major_name):
 
         #-----조회할 데이터 옵션 선택-----#
 
-        # self.course_info_list = list()
+        self.course_info_list = list()
 
-        if major_name in self.major_dict.keys():
+        if major_name in self.major_dict.keys() == True:
             params ={
                 'tab_lang':'K',
                 'type':'',
@@ -125,10 +116,8 @@ class parsing_class():
                 'ag_crs_strct_cd': self.major_dict[major_name], # 전공 목록
                 'ag_compt_fld_cd': '' # 교양 목록
                 }
-            self.major_name_data = list(self.parsing(params))
-            # self.parsing(params)
         else:
-            params ={
+            params 
                 'tab_lang':'K',
                 'type':'',
                 'ag_ledg_year':self.default_year, # 년도
@@ -137,12 +126,11 @@ class parsing_class():
                 'campus_sect':'H1', # H1=서울, H2=글로벌
                 'gubun': '2', # 1=전공/부전공, 2=실용외국어/교양과목
                 'ag_crs_strct_cd': '', # 전공 목록
-                'ag_compt_fld_cd': self.liberal_dict[major_name] # 교양 목록
+                'ag_compt_fld_cd': ''#self.liberal_dict[major_name] # 교양 목록
                 }
-            self.major_name_data = list(self.parsing(params))
-            # self.parsing(params)
-        
-        print(self.major_name_data)
+
+        self.major_name_data = list(self.parsing(params))
+
 
     def parsing(self, params):
 
@@ -157,65 +145,36 @@ class parsing_class():
         html = BeautifulSoup(self.timetable.text, "lxml")
         tr_courses = html.find_all("tr", attrs={"height":"55"})
         
-        course_info_list=[]
-        major_code=params['ag_compt_fld_cd'] if params['ag_crs_strct_cd']=='' else params['ag_crs_strct_cd']
-        
-        search_major=major_list.objects.get(major_code=major_code)
-        
         for tr_course in tr_courses:
             course_area = tr_course.find_all("td")[1].string # 개설영역
             course_year = tr_course.find_all("td")[2].string # 학년
             course_number = tr_course.find_all("td")[3].string # 학수번호
 
-            course_name = tr_course.find_all("td")[4].get_text() # 교과목명
-            course_name = course_name.replace("\n","")
-            cut_count = course_name.count("(")
-            for _ in range(cut_count):
-                cut = course_name.rfind("(")
-                course_name = course_name[:cut]
+            self.course_name = tr_course.find_all("td")[4].get_text() # 교과목명
+            self.course_name = self.course_name.replace("\n","")
+            cut_count = self.course_name.count("(")
+            for i in range(cut_count):
+                cut = self.course_name.rfind("(")
+                self.course_name = self.course_name[:cut]
             
-            course_professor = tr_course.find_all("td")[10].get_text() # 담당교수
-            course_professor = course_professor.replace("\r","").replace("\t","").replace("\n","")
-            cut = course_professor.rfind("(")
+            self.course_professor = tr_course.find_all("td")[10].get_text() # 담당교수
+            self.course_professor = self.course_professor.replace("\r","").replace("\t","").replace("\n","")
+            cut = self.course_professor.rfind("(")
             if cut!=-1:
-                course_professor = course_professor[:cut]
+                self.course_professor = self.course_professor[:cut]
 
-            course_time = tr_course.find_all("td")[13].get_text() # 강의시간
-            cut = course_time.find("(")
-            course_time = course_time[:cut-1]
+            self.course_time = tr_course.find_all("td")[13].get_text() # 강의시간
+            cut = self.course_time.find("(")
+            self.course_time = self.course_time[:cut-1]
             
-            course_people = tr_course.find_all("td")[14].string # 현재인원
-            course_people = course_people.replace("\xa0","")
-            cut=course_people.find("/")
-            course_open=course_people[:cut]
-            course_total=0 if course_people[cut+1]=="없음" else course_people[cut+1:]
-            
-            updated_at=0
-            try:
-                exist_one=lecture.objects.get(course_number=course_number)
-                exist_one.course_date=course_time
-                exist_one.professor_name=course_professor
-                exist_one.opening=course_open
-                exist_one.total_number=course_total
-                exist_one.updated_at=timezone.localtime(timezone.now())
-                exist_one.save()
-                updated_at=exist_one.updated_at
-            except:
-                
-                lecture(major=search_major,
-                    course_number=course_number,
-                    course_date=course_time,
-                    lecture_name=course_name,
-                    professor_name=course_professor,
-                    opening=course_open,
-                    total_number=course_total,
-                    updated_at=timezone.localtime(timezone.now())).save()
+            self.course_people = tr_course.find_all("td")[14].string # 현재인원
+            self.course_people = self.course_people.replace("\xa0","")
 
-            course_info_list.append([course_name, course_professor, course_time,course_people,updated_at])
+            self.course_info_list.append([self.course_name, self.course_professor, self.course_time, self.course_people])
 
-        parsing_data = course_info_list
+        self.parsing_data = self.course_info_list
 
-        return parsing_data
+        return self.parsing_data
     
     @staticmethod
     def major_list_parsing():
