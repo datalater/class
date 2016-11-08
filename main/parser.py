@@ -3,23 +3,28 @@ import requests
 from bs4 import BeautifulSoup
 from datetime import date
 from django.utils import timezone
+import time
+from gevent.pool import Pool
+from gevent import monkey
+monkey.patch_socket()
 
 import re
 
-def function():
-    new=kakao_user(user_key="000")
-    new.save()
 
-def init_parsing():
+def all_parsing():
     a=parsing_class()
+    start_time=time.time()
     a.parsing_all()
-    
+    end_time=time.time()
+    print (end_time-start_time)
+
 def periodic_parsing():
     a=parsing_class()
-
+    a.periodic_parsing()
 
 head={'User-Agent': 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.71 Safari/537.36'}
 timetable_url = "http://webs.hufs.ac.kr:8989/src08/jsp/lecture/LECTURE2020L.jsp"
+
 
 class parsing_class():
     def __init__(self):
@@ -49,10 +54,11 @@ class parsing_class():
         self.liberal_code_list = [] # 교양 코드 목록
         self.major_dict=dict()
         self.liberal_dict=dict()
+        # self.all_major_dict=dict()
         
-        all_major=major_list.objects.filter(year=self.default_year,semester=self.default_session)
-        liberals=all_major.filter(category=0)
-        majors=all_major.filter(category=1)
+        self.all_major=major_list.objects.filter(year=self.default_year,semester=self.default_session)
+        liberals=self.all_major.filter(category=0)
+        majors=self.all_major.filter(category=1)
         
         
         for major in majors:
@@ -61,14 +67,21 @@ class parsing_class():
         for liberal in liberals:
             self.liberal_dict[liberal.major_name]=liberal.major_code
             
+        # for major in all_major:
+        #     self.all_major_dict[major.major_name]=major.major_code
+            
+        # self.all_major_list=list(self.all_major_dict.keys())
         self.major_code_list=list(self.major_dict.values())
         self.liberal_code_list=list(self.liberal_dict.values())
-        
-    def parsing_all(self):
 
+
+    def parsing_all(self):
+        
         #-----조회할 데이터 옵션 선택-----#
+        pool=Pool(70)
 
         # self.course_info_list = list()
+        params_list=[]
 
         for i in range(len(self.gubun_list)):
             if  i == 0:
@@ -84,9 +97,9 @@ class parsing_class():
                         'ag_crs_strct_cd': self.major_code_list[j], # 전공 목록
                         'ag_compt_fld_cd':'' # 교양 목록
                         }
+                    params_list.append(params)
 
                     # self.major_data = list(self.parsing(params))
-                    self.parsing(params)
             else:
                 for k in range(len(self.liberal_code_list)):
                     params ={
@@ -100,9 +113,13 @@ class parsing_class():
                         'ag_crs_strct_cd': '', # 전공 목록
                         'ag_compt_fld_cd': self.liberal_code_list[k] # 교양 목록
                         }
-
+                        
+                    params_list.append(params)
+        
+        for _ in pool.imap(self.parsing,params_list):
+            pass
                     # self.liberal_data = list(self.parsing(params))
-                    self.parsing(params)
+                    
 
         # self.all_data = self.major_data + self.liberal_data
 
@@ -125,8 +142,8 @@ class parsing_class():
                 'ag_crs_strct_cd': self.major_dict[major_name], # 전공 목록
                 'ag_compt_fld_cd': '' # 교양 목록
                 }
-            self.major_name_data = list(self.parsing(params))
-            # self.parsing(params)
+            # self.major_name_data = list(self.parsing(params))
+            self.parsing(params)
         else:
             params ={
                 'tab_lang':'K',
@@ -139,12 +156,14 @@ class parsing_class():
                 'ag_crs_strct_cd': '', # 전공 목록
                 'ag_compt_fld_cd': self.liberal_dict[major_name] # 교양 목록
                 }
-            self.major_name_data = list(self.parsing(params))
-            # self.parsing(params)
+            # self.major_name_data = list(self.parsing(params))
+            self.parsing(params)
         
-        print(self.major_name_data)
+        # print(self.major_name_data)
+
 
     def parsing(self, params):
+        
 
         #####-----params를 인자로 받아서 파싱하는 함수-----#####
         self.current_session=requests.session()
@@ -157,9 +176,9 @@ class parsing_class():
         html = BeautifulSoup(self.timetable.text, "lxml")
         tr_courses = html.find_all("tr", attrs={"height":"55"})
         
-        course_info_list=[]
+        #course_info_list=[]
         major_code=params['ag_compt_fld_cd'] if params['ag_crs_strct_cd']=='' else params['ag_crs_strct_cd']
-        
+        #print(str(time.time())+" "+major_code+" 시작")
         search_major=major_list.objects.get(major_code=major_code)
         
         for tr_course in tr_courses:
@@ -188,7 +207,7 @@ class parsing_class():
             course_people = course_people.replace("\xa0","")
             cut=course_people.find("/")
             course_open=course_people[:cut]
-            course_total=0 if course_people[cut+1]=="없음" else course_people[cut+1:]
+            course_total=0 if course_people[cut+1:]=="없음" else course_people[cut+1:]
             
             updated_at=0
             try:
@@ -199,7 +218,7 @@ class parsing_class():
                 exist_one.total_number=course_total
                 exist_one.updated_at=timezone.localtime(timezone.now())
                 exist_one.save()
-                updated_at=exist_one.updated_at
+                # updated_at=exist_one.updated_at
             except:
                 
                 lecture(major=search_major,
@@ -210,13 +229,29 @@ class parsing_class():
                     opening=course_open,
                     total_number=course_total,
                     updated_at=timezone.localtime(timezone.now())).save()
+                    
+        
+        #print('process'+major_code+" done") 
+        #     course_info_list.append([course_name, course_professor, course_time,course_people,updated_at])
 
-            course_info_list.append([course_name, course_professor, course_time,course_people,updated_at])
+        # parsing_data = course_info_list
 
-        parsing_data = course_info_list
+        # return parsing_data
 
-        return parsing_data
-    
+
+    def periodic_parsing(self):
+        
+        major_name_list=[]
+        pool=Pool(70)
+        
+        for major in self.all_major:
+            if major.on_off and major.should_parse():
+                major_name_list.append(major.major_name)
+        
+        for _ in pool.imap(self.parsing_major_name,major_name_list):
+            pass
+
+
     @staticmethod
     def major_list_parsing():
         now = date.today()

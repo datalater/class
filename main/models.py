@@ -26,6 +26,8 @@ class major_list(models.Model):
     semester=models.IntegerField(null=True)
     #--전공코드
     major_code=models.CharField(max_length=20,null=True)
+    #--파싱 on_off
+    on_off=models.BooleanField(default=True)
     
     def __str__(self):
         return self.major_name
@@ -57,7 +59,7 @@ class lecture(models.Model):
     #--이 강의 정보가 업데이트 되고 있는 정보인지 즉, 5초 이내의 정보인지 검사
     def brand_new(self):
         
-        if (timezone.now()-self.updated_at).seconds>5:
+        if (timezone.now()-self.updated_at).seconds>22:
             return False
         else:
             return True

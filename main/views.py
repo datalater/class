@@ -100,7 +100,7 @@ def message(request):
                     "text": '과목명: '+lecture_list.lecture_name+"\n"+
                         '담당교수: '+lecture_list.professor_name+"\n"+
                         '현재원/총원: '+str(lecture_list.opening)+"/"+str(lecture_list.total_number)+"\n"+
-                        'updated_at: '+str((lecture_list.updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초'))
+                        'updated_at: '+str((lecture_list.updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초 %p'))
                 },
                 "keyboard":{
                     "type": "buttons",
@@ -205,7 +205,7 @@ def message(request):
                     "text": '과목명: '+lecture_list[0].lecture_name+"\n"+
                         '담당교수: '+lecture_list[0].professor_name+"\n"+
                         '현재원/총원: '+str(lecture_list[0].opening)+"/"+str(lecture_list[0].total_number)+"\n"+
-                        'updated_at: '+str((lecture_list[0].updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초'))
+                        'updated_at: '+str((lecture_list[0].updated_at+timedelta(hours=9)).strftime('%I시 %M분 %S초 %p'))
                 },
                 "keyboard":{
                     "type": "buttons",

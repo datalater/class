@@ -9,11 +9,11 @@ class periodic_task:
     __task_instance=None
     status=None
     
-    def __init__(self,time=60):
+    def __init__(self,time=20):
         periodic_task.__task=BlockingScheduler()
-        init_parsing()
+        all_parsing()
         if periodic_task.__task_instance is None:
-            periodic_task.__task_instance=periodic_task.__task.add_job(function,'interval',seconds=5)
+            periodic_task.__task_instance=periodic_task.__task.add_job(periodic_parsing,'interval',seconds=20)
         periodic_task.status="구동 중"
         periodic_task.__task.start()
         
